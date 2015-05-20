@@ -16,7 +16,7 @@ Array.prototype.shuffle = function () {
 };
 
 Array.prototype.insert = function (index, item) {
-    this.splice(index, 0, item);
+    this.slice(index, 0, item);
 };
 
 Array.prototype.tileSearch = function (target) {
@@ -26,6 +26,10 @@ Array.prototype.tileSearch = function (target) {
         }
     }
     return -1;
+};
+
+Array.prototype.remove = function(index) {
+    this.splice(index,1);
 };
 
 /* 
@@ -189,7 +193,7 @@ Player.prototype.discard = function (tile) {
     if (index === -1) {
         alert("Can't discard: tile not in hand");
     } else {
-        this.hand.splice(index, 1);
+        this.hand.slice(index, 1);
     }
 };
 
@@ -439,6 +443,8 @@ Game.prototype.throwFromHand = function (playerIndex, tile) {
 
 
 Game.prototype.tryGroup = function (group, newTile) {
+    group = group.slice(0);
+    var origTile = newTile;
     var group0val = group[0].value;
     var group0col = group[0].color;
     var groupFval = group[group.length - 1].value;
@@ -454,18 +460,31 @@ Game.prototype.tryGroup = function (group, newTile) {
     if (newTile.value === -1) {
         newTile = new Tile(this.indicator.color, (this.indicator.value % 13) + 1);
     }
-    var groupType = "consec";
+    var groupType = "color";
     if (group.length === 1) {
         groupType = "both";
     } else if (group0col === groupFcol) {
-        groupType = "color";
+        groupType = "consec";
     }
-    if ((groupType === "consec" || groupType === "both") && ((group0col === newTile.color && (group0val % 13) + 1 === newTile.value) || (groupFcol === newTile.color && groupFval === (newTile.value % 13) + 1))) {
-        return "consec";
+    if(groupType === "consec" || groupType === "both") {
+        if (group0col === newTile.color && (newTile.value % 13) + 1 === group0val) {
+            group.insert(0,origTile);
+            return group;
+        } else if (groupFcol === newTile.color && newTile.value === (groupFval) + 1) {
+            group.push(origTile);
+            return group;
+        }
     }
     if ((groupType === "color" || groupType === "both") && (group0col !== newTile.color && group0val === newTile.value)) {
-        return true;
+        for(var i=0; i<group.length; i++) {
+            if(group[i].color === newTile.color) {
+                return [];
+            }
+        }
+        group.push(origTile);
+        return group;
     }
+    return [];
 };
 
 Game.prototype.validHand = function (hand) {
@@ -479,10 +498,9 @@ Game.prototype.validHand = function (hand) {
         firstCard = handCopy.pop();
     }
     var firstGroup = [firstCard];
-
     for (i = 0; i < handCopy.length; i++) {
-        var groupCopy = curGroup.slice(0);
-        groupCopy = this.tryGroup(groupCopy, otherTiles[i]);
+        var groupCopy = firstGroup.slice(0);
+        groupCopy = this.tryGroup(groupCopy, handCopy[i]);
         if (groupCopy.length > 0) {
             var nextHandCopy = handCopy.slice(0);
             nextHandCopy.remove(i);
@@ -520,4 +538,8 @@ var p3 = new Player("Rafet");
 var p4 = new Player("Sivekar");
 
 var newGame = new Game([p1, p2, p3, p4], true); //shuffle players
-newGame.play();
+//newGame.play();
+var t1 = new Tile(Tile.strToColor("R"), 1);
+var t2 = new Tile(Tile.strToColor("G"), 1);
+var t3 = new Tile(Tile.strToColor("B"), 1);
+var t4 = new Tile(Tile.strToColor("Y"), 1);
