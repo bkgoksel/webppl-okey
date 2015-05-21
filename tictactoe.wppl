@@ -118,7 +118,7 @@ var outcomeERP = function(state, action, player) {
             var nextAction = sample(actionERP(nextState, nextPlayer))
             return sample(outcomeERP(nextState, nextAction, nextPlayer))
         }
-    },50)
+    })
 }
 
 //print(transition(startState, [0,1], "x"));

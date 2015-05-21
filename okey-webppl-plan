@@ -1,0 +1,60 @@
+STATE
+
+Game state consists of:
+
+players array
+	each player has:
+		- a private hand
+		- a public tile ownership probability for each possible tile
+		- name(possibly global)
+piles array
+	each pile is an array of tiles. 
+unused tiles
+	tiles that have not been drawn by anyone yet
+next tile
+	the next tile to be drawn from the middle. (should be sampled every time)
+used tiles
+	tiles drawn by someone and that will not be drawn from the middle in the future
+publicly seen tiles
+	tiles seen by all the players(discarded at some point)
+indicator(possibly global)
+
+ACTION PRIOR(state, curPlayer)
+	-discard one of the tiles already in your hand
+		-draw the next tile
+		-draw the pile tile
+	-draw the next tile and discard it
+	-draw the pile tile and discard it
+
+	return [drawFrom(either middle or pile), discardTile[value, color]]
+
+
+TRANSITION(STATE, PLAYER, ACTION)
+	-draw from the appropriate source, remove tile from source and add to hand
+	-take the specified tile from the hand and put it in the pile
+
+WIN
+	-usual recursive hand check
+
+TERMINAL CONDITION
+	-win anyone?
+
+OTHERPLAYER
+	p# + 1 % 4
+
+EXPUTILITY
+	if win player return sth if win anyone else 0
+
+ACTIONERP
+	action = sampleAction(state, curPlayer)
+	outcome = sampleOutcome(state, action, player)
+	factor(expUtility)
+	return action
+
+OUTCOMEERP
+	nextState = transition(state, action, player)
+	nextPlayer = nextPlayer(curPlayer)
+	ERPify
+	if terminal, return state
+	else nextAction = sampleActionERP(nextState, nextPlayer)
+	return sampleOutcome(nextState, nextAction, nextPlayer)
