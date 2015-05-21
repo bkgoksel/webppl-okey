@@ -1,0 +1,128 @@
+//A running goal infering AI for the tictactoe game written in WebPPL
+
+var startState0 = [
+    ["0", "0", "0"],
+    ["0", "x", "0"],
+    ["0", "0", "0"]
+];
+
+var startState1 = [
+    ["o", "0", "0"],
+    ["x", "o", "x"],
+    ["o", "x", "x"]
+];
+
+var startState2 = [
+    ["0", "o", "0"],
+    ["o", "x", "x"],
+    ["0", "o", "0"]
+];
+
+var getRowActions = function(rowInd, row) {
+  var retArr =[];
+  row.forEach(function (element, index, array) {
+    if(element === "0") {
+      retArr.push([rowInd, index]);
+    }
+  });
+  return retArr;
+}
+
+var constructActions = function(state) {
+  var actions = [];
+  actions = actions.concat(getRowActions(0, state[0]), getRowActions(1, state[1]), getRowActions(2, state[2]));
+  return actions;
+}
+
+var validMove = function(move, state) {
+    return state[move[0]][move[1]] === "0"
+}
+var actionPriorERP = function(state) {
+    return Enumerate(function() {
+        // var validActions = constructActions(state);
+        // var validInd = randomInteger(validActions.length);
+        // return validActions[validInd];
+        var action = [randomInteger(3), randomInteger(3)]
+        factor(validMove(action, state) ? 0 : -Infinity)
+        return action
+    }, 50)
+}
+var transition = function(state, action, player) {
+    var nextState = [];
+    if (action[0] === 0) {
+        nextState.push(buildState(0, state[0], [], action[1], player));
+        nextState.push(buildState(0, state[1], [], 4, player));
+        nextState.push(buildState(0, state[2], [], 4, player));
+    } else if (action[0] === 1) {
+        nextState.push(buildState(0, state[0], [], 4, player));
+        nextState.push(buildState(0, state[1], [], action[1], player));
+        nextState.push(buildState(0, state[2], [], 4, player));
+    } else if (action[0] === 2) {
+        nextState.push(buildState(0, state[0], [], 4, player));
+        nextState.push(buildState(0, state[1], [], 4, player));
+        nextState.push(buildState(0, state[2], [], action[1], player));
+    } else {
+      console.log(state);
+    }
+    return nextState;
+}
+var buildState = function(i, prevState, newState, action, player) {
+    if (i >= 3) return newState;
+    else if (action === i) {
+        newState.push(player);
+        return buildState(i + 1, prevState, newState, action, player);
+    } else {
+        newState.push(prevState[i]);
+        return buildState(i + 1, prevState, newState, action, player);
+    }
+}
+var win = function(player, state) {
+    if ((state[0][0] === player && state[1][1] === player && state[2][2] === player) || (state[0][2] === player && state[1][1] === player && state[2][0] === player)) return true
+    if (((state[0][0] === player && state[0][1] === player && state[0][2] === player) || (state[0][0] === player && state[1][0] === player && state[2][0] === player)) || ((state[1][0] === player && state[1][1] === player && state[1][2] === player) || (state[0][1] === player && state[1][1] === player && state[2][1] === player)) || ((state[2][0] === player && state[2][1] === player && state[2][2] === player) || (state[0][2] === player && state[1][2] === player && state[2][2] === player))) return true
+    return false
+}
+var terminal = function(state) {
+    if (state[0][0] === "0" || state[0][1] === "0" || state[0][2] === "0" || state[1][0] === "0" || state[1][1] === "0" || state[1][2] === "0" || state[2][0] === "0" || state[2][1] === "0" || state[2][2] === "0") {
+        return false
+    } else {
+        return true
+    }
+}
+var otherPlayer = function(player) {
+    return player === "x" ? "o" : "x"
+}
+var draw = function(outcome) {
+    return (!win("x", outcome) && !win("o", outcome));
+}
+var expUtility = function(outcome, player) {
+    return (win(player, outcome) ? 1 : (draw(outcome) ? 0.1 : 0.01))
+}
+var actionERP = function(state, player) {
+    return Enumerate(function() {
+        var action = sample(actionPriorERP(state))
+        var outcome = sample(outcomeERP(state, action, player))
+        factor(expUtility(outcome, player))
+        return action
+    }, 50)
+}
+var outcomeERP = function(state, action, player) {
+    var nextState = transition(state, action, player)
+    var nextPlayer = otherPlayer(player)
+    return Enumerate(function() {
+        if (terminal(state)) {
+            return state
+        }
+        if (terminal(nextState) || win(player, nextState) || win(otherPlayer(player), nextState)) {
+            return nextState
+        } else {
+            var nextAction = sample(actionERP(nextState, nextPlayer))
+            return sample(outcomeERP(nextState, nextAction, nextPlayer))
+        }
+    },50)
+}
+
+//print(transition(startState, [0,1], "x"));
+//print(outcomeERP(startState, sample(actionERP(startState, "o")), "o"))
+//print(actionERP(startState0, "x"));
+//console.log(actionERP(startState1, "x"));
+console.log(actionERP(startState0, "o"));
