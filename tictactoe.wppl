@@ -18,30 +18,11 @@ var startState2 = [
     ["0", "o", "0"]
 ];
 
-var getRowActions = function(rowInd, row) {
-  var retArr =[];
-  row.forEach(function (element, index, array) {
-    if(element === "0") {
-      retArr.push([rowInd, index]);
-    }
-  });
-  return retArr;
-}
-
-var constructActions = function(state) {
-  var actions = [];
-  actions = actions.concat(getRowActions(0, state[0]), getRowActions(1, state[1]), getRowActions(2, state[2]));
-  return actions;
-}
-
 var validMove = function(move, state) {
     return state[move[0]][move[1]] === "0"
 }
 var actionPriorERP = function(state) {
     return Enumerate(function() {
-        // var validActions = constructActions(state);
-        // var validInd = randomInteger(validActions.length);
-        // return validActions[validInd];
         var action = [randomInteger(3), randomInteger(3)]
         factor(validMove(action, state) ? 0 : -Infinity)
         return action
