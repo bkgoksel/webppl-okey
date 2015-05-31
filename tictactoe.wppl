@@ -44,7 +44,7 @@ var transition = function(state, action, player) {
         nextState.push(buildState(0, state[2], [], action[1], player));
     } else {
       console.log(state);
-    }
+    } 
     return nextState;
 }
 var buildState = function(i, prevState, newState, action, player) {
@@ -106,4 +106,4 @@ var outcomeERP = function(state, action, player) {
 //print(outcomeERP(startState, sample(actionERP(startState, "o")), "o"))
 //print(actionERP(startState0, "x"));
 //console.log(actionERP(startState1, "x"));
-console.log(actionERP(startState0, "o"));
+ console.log(actionERP(startState0, "o"));

@@ -13,7 +13,7 @@ Array.prototype.shuffle = function () {
         input[ii] = itemAtIndex;
     }
     return input;
-};
+}; 
 
 Array.prototype.insert = function (index, item) {
     this.slice(index, 0, item);
