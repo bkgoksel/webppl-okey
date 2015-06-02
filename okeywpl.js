@@ -1,4 +1,4 @@
-var HANDLENGTH = 7
+var HANDLENGTH = 7;
 var startState = {
     players: [{
         hand: [
@@ -43,12 +43,37 @@ var startState = {
     discarded: []
 };
 
-var actionPriorERP = Enumerate(function(state, player) {
-    var drawPile = (flip() && state.piles[prevPlayer(player)].length > 0) ? "pile" : "center";
-    var discardTile = randomInteger(HANDLENGTH);
-    return {drawnTile: drawPile, discardedTile: discardTile};
-});
+var actionERP = function(state, player) {
+    Enumerate(function() {
+        if(win(state, player)) {
+            return "WIN";
+        } else {
+            var goalSample = sample(goalPriorERP(state, player));
+            var actionSample = sample(actionPriorERP(state, player, goalSample));
+            var outcomeSample = sample(outcomeERP(state, player, actionSample));
+            factor(win(outcomeSample, player) ? 0 : -10);
+            return actionSample;
+        }
+    });
+};
 
+var outcomeERP = function(state, player, actionSample) {
+    Enumerate(function() {
+        if(win(state, plyer)) {
+            return state;
+        } else {
+            var nextPlayer = otherPlayer(player);
+            var nextState = transition(state, player, actionSample);
+            var nextAction = sample(actionERP(nextState, nextPlayer));
+            var finalOutcome = sample(outcomeERP(nextState, nextPlayer, nextAction));
+            return finalOutcome;
+        }
+    });
+};
+
+var transition = function(state, player, action) {
+    
+};
 
 //EXTERNAL PART
 var prevPlayer = function(player) {
@@ -108,10 +133,10 @@ var validHand = function (state, hand) {
     if (hand.length === 0) {
         return true;
     }
-    handCopy = hand.slice(0);
+    var handC4opy = hand.slice(0);
     var firstCard = handCopy.pop();
     var firstGroup = [firstCard];
-    for (i = 0; i < handCopy.length; i++) {
+    for (var i = 0; i < handCopy.length; i++) {
         var groupCopy = firstGroup.slice(0);
         groupCopy = tryGroup(groupCopy, handCopy[i]);
         if (groupCopy.length > 0) {
@@ -129,7 +154,7 @@ var validGrouping = function (curGroup, otherTiles) {
     if (curGroup.length > 2 && validHand(otherTiles)) {
         return true;
     }
-    for (i = 0; i < otherTiles.length; i++) {
+    for (var i = 0; i < otherTiles.length; i++) {
         var groupCopy = curGroup.slice(0);
         groupCopy = tryGroup(groupCopy, otherTiles[i]);
         if (groupCopy.length > 0) {

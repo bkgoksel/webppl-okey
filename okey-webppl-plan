@@ -1,99 +1,127 @@
 In the game state, for each player:
 -> Player knowledge about game state:
-	-> Player's hand
-	-> Tiles that are in piles.
-	-> Tiles that are in the other player's hand.
-	-> Tiles the other player knows are in my hand.
-	-> Tiles the player doesn't know where they are.
-	
-CHOOSE ACTION(state, player)
-	-> if state is a winning state for the player, return the state itself. (return empty action or a special string for done)
-	-> sample a random goal rom the game state(valid finishing hand)
-	-> choose an action that is in tune with this goal ((first approach, if thrown tile isn't part of the chosen goal, draw random tile. Throw a tile in your hand that is not in your goal hand)
-	-> call outcome with the chosen goal, action.
-	-> factor winning without other player winning
-	-> enumerate dat shit
-	
-OUTCOME(state, player, action)
-	-> if anyone is a winner in this hand, return this state
-	-> set next player as the other player
-	-> get the next action 
-	-> construct a state for the other player based on current player's beliefs and the action we just chose.
-	-> get the outcome of the next state and the next player.
+	-> Player's hand									hand[tile]
+	-> Tiles that are in piles.							piles[[tile]]
+	-> Tiles that are in the other player's hand.		inOthersHand[tile]
+	-> Tiles the other player knows are in my hand.		knownInMyHand[tile]
+	-> Tiles the player doesn't know where they are.	unknownLocation[tile]
 
-TRANSITION
-	(construct a state for the other player based on current player's beliefs and the action just chosen)
+ACTIONERP(mainPlayer, mainPlayerState)
+	if(main player is winning in mainPlayerState) return the special WIN action
+	goal = GOALERP(mainPlayerState)
+	mainPlayerAction = ACTIONPRIORERP(mainPlayerState, goal)
+	OUTCOMEWITHMAINACTION(mainPlayer, mainPlayerState, mainPlayerAction)
+	factor(sampled outcome wins?)
+
+OUTCOMEWITHMAINACTION(mainPlayer, mainPlayerState, mainPlayerAction)
+	if(mainPlayer's action is WIN, return the state)
+	newState = APPLYACTION(mainPlayer, mainPlayerState, mainPlayerAction)
+	othersState = INFERSTATE(mainPlayer, mainPlayerState)
+	otherPlayerAction = ACTIONERP(otherPlayer, othersState)
+	finalOutcome = OUTCOMEWITHOTHERACTION(mainPlayer, mainPlayerState, otherPlayerAction)
+
+OUTCOMEWITHOTHERACTION(mainPlayer, mainPlayerState, otherPlayerAction)
+	if(otherPlayer's action is WIN, return this state)
+	newState = APPLYACTION(otherPlayer, mainPlayerState, otherPlayerAction)
+	newAction = ACTIONERP(mainPlayer, newState)
+	finalOutcome = OUTCOMEWITHMAINACTION(mainPlayer, newState, newAction)
+
+INFERSTATE(mainPlayer, mainPlayerState)
+	otherPlayerState;
+	otherPlayerState.hand = HANDERP(mainPlayerState.inOthersHand, mainPlayerState.unknownLocation)
+	otherPlayerState.piles = mainPlayerState.piles
+	otherPlayerState.inOthersHand = mainPlayerState.knownInMyHand
+	otherPlayerState.knownInMyHand = mainPlayerState.inOthersHand
+	otherPlayerState.unknownLocation = BUILDUNKNOWNS(otherPlayerState.hand, otherPlayerState.inOthersHand, otherPlayerState.piles) \\EXTERNALIZE
+
+HANDERP(knownTiles, possibleExtras)
+
+GOALPRIORERP(state)
+
+ACTIONPRIORERP(state, goal)
+
+WIN(playerState, playerHand) \\EXTERNALIZE
+
+APPLYACTION(mainPlayer, mainPlayerState, actionPlayer, action) \\EXTERNALIZE
+
+
+
+
+
+
+
+
+Action ERP:(player1, player1's information)
+
+We call actionERP to get player1's action given player1's information
+player1 picks random goal and random action tied to that goal
+player1 looks at the outcome if player1 chooses this action in the player1's information state, before player1's information. 
+outcome erp is called with player1's information and player1's action and returns player1's guess of the final outcome
+
+Outcome ERP:(player1's information, player1's action)
+
+player1's action is applied to the state.
+player2's information is guessed (a state with player2's information is generated)
+actionERP is called with player2 being the main player with the guessed state
+outcome erp is called again, this time with player1's information but player 2's action, returns player1's guess of the final outcome
+
+Outcome ERP:(player1's information, player2's action)
+
+player2's action is applied to the state.
+player1's information is at hand.
+actionERP is called to find the next action for player1
+outcome ERP is called again, this time with player1's information and player1's action, returns player1's guess of the final outcome
+
+
+
+
+
+
+THE PROBLEM:
+
+action ERP is called with player 1's knowledge to choose action for player ERP (P1)
+that call chooses a random action for player 1
+with that action, outcome ERP is called to guess the outcome that would happen if player 1 chose that action. (P1)(from action)
+	transition: (player 1's action is reflected onto the state)
+	build other's state: (player 2's state is inferred from player 1's knowledge)
+		action ERP is called with player 2's state, chooses the action player 1 thinks player 2 will choose. (P2)
+		this call chooses a random action for player 2
+			with that action, outcome ERP is called to guess the outcome player 2 would guess if player 1 chose that action and player 2 some other action (P2)(from action)
+			transition: (player 2's action is reflected onto the state)
+			build other's state: (player 1's next state is inferred from the inferred state of player 2)
+				action ERP is called with player 1's state, chooses the action player 1 thinks player 2 will think player 1 will choose. (P1)
+				this call chooses a random action for player 1
+					with that action, outcome ERP is called to guess the outcome player 2 would guess player 1 would guess if player 1 chose that action and player 2 some other and player 1 another. (P1)(from action)
+					transition(player 1's action is reflected onto the state)
+					build other's state: (player 2's state, as inferred by player 1's inferred knowledge from player 2's inferred knowledge from player 1's initial knowledge.)
+						action ERP is called with player 2's state, chooses action player 1 thinks player 2 will think player 1 will think player 2 will choose. (P2)
+						Let's say this is a winning condition for player 2.
+						action ERP returns the win action
+					outcome ERP receives that call back, now outcome ERP knows what action player 2 will take. (P1)
+						outcome ERP calls outcome ERP with player 2, player 2's action, and player 1's knowledge of the state (P2)(from outcome itself)
+						this guesses the outcome player 2 would guess the player 1 would guess player 2 would guess
+						player2 is winning, so the same state would be returned
+					outcome ERP receives that call back, returns the state in which player 2 wins. (P1)
+				here, the action player 1 thinks player 2 will think player 1 will choose is picked. (P1)
+			outcome ERP receives that call back. Now outcome ERP knows what player 2 guesses the next state will be(based on player 1's action) (P2)
+				outcome ERP calls outcome ERP with player 1, player 1's action, and player 2's knowledge of the state (P1's action, P2's mind) (from outcome)
+				this is supposed to keep guessing the outcome P2 would guess if P1 chose that action and P2 some other action (P1's action, P2'S mind)
+				nextPlayer is P2
+				transition
+				
+
+
+INFERSTATE(mainPlayer, mainPlayerState)
 	-> Player's hand: 
-		(Take from previous state) Tiles that are in the other player's hand, tilesw the player doesn't know where they are. Choose enough random tiles from the second set to construct a hand.
+		(Take from previous state) Tiles that are in the other player's hand, tiles the player doesn't know where they are. Choose enough random tiles from the second set to construct a hand.
+		hand = mainPlayerState.inOthersHand; choose any remaining from mainPlayerState.unknownLocation
 	-> Tiles that are in piles:
-		If the player has drawn a tile from a pile, remove that from the pile. add the discarded tile to the pile.
+		piles = mainPlayerState.piles
 	-> Tiles that are in the other player's hand: 
 		If the first player has drawn from the pile, add that tile, then add tiles the other player knows are in my hand)
+		inOthersHand = mainPlayerState.knownInMyHand
 	-> Tiles the other player knows are in my hand:
 		Tiles that are in the other player's hand.
-	-> Tiles the player doesn't know where they are. 
-		Remove the discarded tile from this pile.
-
-
-ACTIONERP(state, player)
-	if(WINNING(state, player)) return WIN ACTION
-	goalSample = SAMPLE(GOALPRIOR(STATE))
-	actionSample = SAMPLE(ACTIONERP(state, player, goalSample))
-	outcomeSample = SAMPLE(OUTCOMEERP(state, player, goalSample, actionSample))
-	FACTOR(WINNING(outcomeSample, player))
-	RETURN actionSample
-	
-OUTCOMEERP(state, player, action)
-	if(WINNING(any player)) RETURN state
-	nextPlayer = OTHERPLAYER(player)
-	nextState = TRANSITION(state, player, action)
-	nextAction = SAMPLE(ACTIONERP(nextState, nextPlayer))
-	finalOutcome = OUTCOMEERP(nextState, nextPlayer, nextAction)
-	RETURN finalOutcome
-	
-TRANSITION(state, player, action)
-	otherPlayer = otherPlayer(player)
-	state.otherPlayer.hand = CONSTRUCTHAND(state, otherPlayer, player.othersHand, player.possibleTiles)
-	state.pilesTile = IF(ACTION.DRAW = PILE, REMOVE ACTION.DRAWN from piles.player) piles.otherPlayer.add ACTION.DISCARDED
-	state.otherPlayer.othersHand = state.player.othersKnowledgeOfHand + ACTION.DRAWNTILE IF ACTION.DRAWN = PILE
-	state.otherPlayer.othersKnowledgeOfHand = state.player.othersHand
-	
-
-
-
-
-
-
-
-
-
-
-
-STATE
-
-Used tiles
-Unused tiles
-piles
-Players:
-	Hand
-	Goal Hand
-	Publicly owned tiles (think about duplicates)
-	Publicly not owned tiles (think about duplicates)
-
-
-BEGINNING STATE
-No tile is
-
-TRANSITI
-
-WIN
-	-usual recursive hand check(EXTERNALIZE)
-
-TERMINAL CONDITION
-	-win anyone?
-
-OTHERPLAYER
-	p# + 1 % 4
-
-EXPUTILITY
-	if win player return sth if win anyone else 0
+		knownInMyHand = mainPlayerState.inOthersHand
+	-> Tiles the player doesn't know where they are.
+		unknownLocation = all tiles - hand - piles - inOthersHand
