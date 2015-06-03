@@ -1,84 +1,99 @@
-var HANDLENGTH = 7;
+var HAND_LENGTH = 7;
 var startState = {
-    players: [{
-        hand: [
-            {val: 1, col: 0},
-            {val: 2, col: 0},
-            {val: 5, col: 0},
-            {val: 5, col: 1},
-            {val: 4, col: 1},
-            {val: 4, col: 3},
-            {val: 6, col: 2},
-            {val: 4, col: 2}
-            ],
-        name: "Kerem",
-        tileProbs: []
-    }, {
-        hand: [
-            {val: 3, col: 0},
-            {val: 6, col: 1},
-            {val: 3, col: 1},
-            {val: 3, col: 2},
-            {val: 1, col: 3},
-            {val: 5, col: 2},
-            {val: 2, col: 1}
-            ],
-        name: "Bogac",
-        tileProbs: []
-    }
-    ],
-    piles: [[],[]],
-    unused: [
-        {val: 1, col: 1},
-        {val: 1, col: 2},
-        {val: 2, col: 2},
-        {val: 2, col: 3},
-        {val: 3, col: 3},
-        {val: 4, col: 0},
-        {val: 5, col: 3},
-        {val: 6, col: 0},
-        {val: 6, col: 3}
-        ],
-    used: [],
-    discarded: []
+    hand: [{val: 0, col: 0},
+           {val: 0, col: 0},
+           {val: 0, col: 0}],
+    piles: [[], []],
+    inOthersHand: [],
+    knownInMyHand: [],
+    unknownLocation: []
 };
 
-var actionERP = function(state, player) {
-    Enumerate(function() {
-        if(win(state, player)) {
+var actionERP = function(state) {
+    return Enumerate(function() {
+        if(externOkey.win(state)) {
             return "WIN";
         } else {
-            var goalSample = sample(goalPriorERP(state, player));
-            var actionSample = sample(actionPriorERP(state, player, goalSample));
-            var outcomeSample = sample(outcomeERP(state, player, actionSample));
-            factor(win(outcomeSample, player) ? 0 : -10);
+            var goalSample = sample(goalPriorERP(state));
+            var actionSample = sample(actionPriorERP(state, goalSample));
+            var outcomeSample = sample(outcomeWithMainERP(state, actionSample));
+            factor(externOkey.win(outcomeSample) ? 0 : -10);
             return actionSample;
         }
     });
 };
 
-var outcomeERP = function(state, player, actionSample) {
-    Enumerate(function() {
-        if(win(state, plyer)) {
+var outcomeWithMainERP = function(state, action) {
+    return Enumerate(function() {
+        if(action == "WIN") {
             return state;
         } else {
-            var nextPlayer = otherPlayer(player);
-            var nextState = transition(state, player, actionSample);
-            var nextAction = sample(actionERP(nextState, nextPlayer));
-            var finalOutcome = sample(outcomeERP(nextState, nextPlayer, nextAction));
-            return finalOutcome;
+            var newState = externOkey.applyAction(state, action);
+            var othersState = sample(inferredStateERP(newState));
+            var othersAction = sample(actionERP(othersState));
+            return sample(outcomeWithOtherERP(newState, othersAction));
+        }
+    })
+};
+
+var outcomeWithOtherERP = function(state, action) {
+    return Enumerate(function() {
+        if(action == "WIN") {
+            return state;
+        } else {
+            var newState = externOkey.applyAction(state, action);
+            var newAction = sample(actionERP(newState));
+            return sample(outcomeWithMainERP(newState, newAction));
         }
     });
 };
 
-var transition = function(state, player, action) {
-    
+var inferredStateERP = function(state) {
+    return Enumerate( function() {
+        var otherPlayerState = {};
+        otherPlayerState.hand = sample(handERP(state.inOthersHand, state.unknownLocation, HAND_LENGTH - state.inOthersHand));
+        otherPlayerState.piles = state.piles;
+        otherPlayerState.inOthersHand = state.knownInMyHand;
+        otherPlayerState.knownInMyHand = state.inOthersHand;
+        otherPlayerState.unknownLocation = externOkey.buildUnknowns(otherPlayerState);
+        return otherPlayerState;
+    });
 };
 
+var handERP = function(curHand, possibleTiles, numNeededTiles) {
+    return Enumerate(function() {
+        if(numNeededTiles === 0) {
+            return curHand;
+        } else {
+            var nextTileIndex = randomInteger(possibleTiles.length);
+            var nextTile = possibleTiles[nextTileIndex];
+            var nextPossibleTiles = possibleTiles;
+            nextPossibleTiles.splice(nextTileIndex,1);
+            var nextHand = curHand;
+            nextHand.push(nextTile);
+            return sample(handERP(nextHand, nextPossibleTiles, HAND_LENGTH - nextHand.length));
+        }
+    });
+}
+
+var actionPriorERP = function(state) {
+    
+}
+
+var goalPriorERP = function(state) {
+    
+}
+
+var applyActionERP = function(state, action) {
+    //ERP part is figuring out the withdrawn tile.
+}
 //EXTERNAL PART
-var prevPlayer = function(player) {
-    return (player + 1) % 2;
-};
+
+var externOkey = {};
+
+externOkey.prototype.applyAction = function(state, action) {
+    
+}
 
 var transition = function(state, action, player) {
     if(action.drawnTile == "center") {
@@ -88,7 +103,6 @@ var transition = function(state, action, player) {
     }
     state.players[player].hand.splice(state.players[player].hand.indexOf(action.discardedTile),1);
     state.piles[player].push(action.discardedTile);
-    //UPDATE THE PROBABILITIES
 };
 
 var win = function(state, player) {

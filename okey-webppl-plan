@@ -6,7 +6,7 @@ In the game state, for each player:
 	-> Tiles the other player knows are in my hand.		knownInMyHand[tile]
 	-> Tiles the player doesn't know where they are.	unknownLocation[tile]
 
-ACTIONERP(mainPlayer, mainPlayerState)
+ACTIONERP(mainPlayerState)
 	if(main player is winning in mainPlayerState) return the special WIN action
 	goal = GOALERP(mainPlayerState)
 	mainPlayerAction = ACTIONPRIORERP(mainPlayerState, goal)
