@@ -1,9 +1,12 @@
 var HAND_LENGTH = 7;
+var ALL_TILES = [];
+
 var startState = {
     hand: [{val: 0, col: 0},
            {val: 0, col: 0},
            {val: 0, col: 0}],
-    piles: [[], []],
+    myDrawPile: [],
+    myDiscardPile: [],
     inOthersHand: [],
     knownInMyHand: [],
     unknownLocation: []
@@ -14,8 +17,7 @@ var actionERP = function(state) {
         if(externOkey.win(state)) {
             return "WIN";
         } else {
-            var goalSample = sample(goalPriorERP(state));
-            var actionSample = sample(actionPriorERP(state, goalSample));
+            var actionSample = sample(actionPriorERP(state));
             var outcomeSample = sample(outcomeWithMainERP(state, actionSample));
             factor(externOkey.win(outcomeSample) ? 0 : -10);
             return actionSample;
@@ -28,20 +30,20 @@ var outcomeWithMainERP = function(state, action) {
         if(action == "WIN") {
             return state;
         } else {
-            var newState = externOkey.applyAction(state, action);
+            var newState = sample(applyActionERP(state, action));
             var othersState = sample(inferredStateERP(newState));
             var othersAction = sample(actionERP(othersState));
-            return sample(outcomeWithOtherERP(newState, othersAction));
+            return sample(outcomeWithOtherERP(newState, othersAction, othersState.hand));
         }
-    })
+    });
 };
 
-var outcomeWithOtherERP = function(state, action) {
+var outcomeWithOtherERP = function(state, action, othersHand) {
     return Enumerate(function() {
         if(action == "WIN") {
             return state;
         } else {
-            var newState = externOkey.applyAction(state, action);
+            var newState = externOkey.applyOthersAction(state, action, othersHand);
             var newAction = sample(actionERP(newState));
             return sample(outcomeWithMainERP(newState, newAction));
         }
@@ -52,7 +54,8 @@ var inferredStateERP = function(state) {
     return Enumerate( function() {
         var otherPlayerState = {};
         otherPlayerState.hand = sample(handERP(state.inOthersHand, state.unknownLocation, HAND_LENGTH - state.inOthersHand));
-        otherPlayerState.piles = state.piles;
+        otherPlayerState.myDrawPile = state.myDiscardPile;
+        otherPlayerState.myDiscardPile = state.myDrawPile;
         otherPlayerState.inOthersHand = state.knownInMyHand;
         otherPlayerState.knownInMyHand = state.inOthersHand;
         otherPlayerState.unknownLocation = externOkey.buildUnknowns(otherPlayerState);
@@ -74,110 +77,59 @@ var handERP = function(curHand, possibleTiles, numNeededTiles) {
             return sample(handERP(nextHand, nextPossibleTiles, HAND_LENGTH - nextHand.length));
         }
     });
-}
+};
 
 var actionPriorERP = function(state) {
-    
-}
-
-var goalPriorERP = function(state) {
-    
-}
+    return Enumerate(function() {
+        var action = {};
+        action.draw = flip() ? "center" : "pile";
+        action.discard = randomInteger(HAND_LENGTH + 1) - 1;
+        return action; 
+    });
+};
 
 var applyActionERP = function(state, action) {
-    //ERP part is figuring out the withdrawn tile.
-}
-//EXTERNAL PART
-
-var externOkey = {};
-
-externOkey.prototype.applyAction = function(state, action) {
-    
-}
-
-var transition = function(state, action, player) {
-    if(action.drawnTile == "center") {
-        state.players[player].hand.push(state.unused.pop());
-    } else {
-        state.players[player].hand.push(state.piles[prevPlayer(player)].pop());
-    }
-    state.players[player].hand.splice(state.players[player].hand.indexOf(action.discardedTile),1);
-    state.piles[player].push(action.discardedTile);
-};
-
-var win = function(state, player) {
-    return (validHand(state, state.players[player].hand)) ? true : false;    
-};
-
-var tryGroup = function (group, newTile) {
-    group = group.slice(0);
-    var origTile = newTile;
-    var group0val = group[0].value;
-    var group0col = group[0].color;
-    var groupFval = group[group.length - 1].value;
-    var groupFcol = group[group.length - 1].color;
-    var groupType = "color";
-    if (group.length === 1) {
-        groupType = "both";
-    } else if (group0col === groupFcol) {
-        groupType = "consec";
-    }
-    if(groupType === "consec" || groupType === "both") {
-        if (group0col === newTile.color && (newTile.value % 13) + 1 === group0val) {
-            group.insert(0,origTile);
-            return group;
-        } else if (groupFcol === newTile.color && newTile.value === (groupFval) + 1) {
-            group.push(origTile);
-            return group;
+    return Enumerate(function() {
+        var newState;
+        var drawnTile;
+        var newHand;
+        if(action.draw === "pile") {
+            // If I draw from the draw pile, the last element is no longer on the draw pile.
+            drawnTile = state.myDrawPile.pop();
+            var newPile = state.myDrawPile;
+            newState.myDrawPile = newPile;
+            // I didn't learn anything new about the location of tiles.
+            newState.unknownLocation = state.unknownLocation;
+            // My opponent now knows I have that tile in my hand.
+            state.knownInMyHand.push(drawnTile);
+        } else {
+            // I guess I will uniformly draw one of the tiles whose locations I don't know
+            var drawIndex = randomInteger(state.unknownLocation.length) - 1;
+            drawnTile = state.unknownLocation[drawIndex];
+            // From now on I know the location of that tile.
+            state.unknownLocation.splice(drawIndex, 1);
+            var newUnknown = state.unknownLocation;
+            newState.unknownLocation = newUnknown;
+            // The draw pile doesn't change as I didn't touch it.
+            newState.myDrawPile = state.myDrawPile;
         }
-    }
-    if ((groupType === "color" || groupType === "both") && (group0col !== newTile.color && group0val === newTile.value)) {
-        for(var i=0; i<group.length; i++) {
-            if(group[i].color === newTile.color) {
-                return [];
-            }
+        // We add the drawn tile to the hand.
+        newHand = state.hand.concat([drawnTile]);
+        // We choose the tile to discard
+        var discardedTile = newHand[action.discard];
+        newHand.splice(action.discard, 1);
+        newState.hand = newHand;
+        // We add that tile to the discard pile.
+        state.myDiscardPile.push(discardedTile);
+        newState.myDiscardPile = state.myDiscardPile;
+        //If my opponent knew I had the tile I discarded, remove it from knownInMyHand
+        if(state.knownInMyHand.indexOf(discardedTile) !== -1) {
+            state.knownInMyHand.splice(state.knownInMyHand.indexOf(discardedTile), 1);
         }
-        group.push(origTile);
-        return group;
-    }
-    return [];
+        newState.knownInMyHand = state.knownInMyHand;
+        newState.inOthersHand = state.inOthersHand;
+        return newState;        
+    });
 };
 
-var validHand = function (state, hand) {
-    if (hand.length === 0) {
-        return true;
-    }
-    var handC4opy = hand.slice(0);
-    var firstCard = handCopy.pop();
-    var firstGroup = [firstCard];
-    for (var i = 0; i < handCopy.length; i++) {
-        var groupCopy = firstGroup.slice(0);
-        groupCopy = tryGroup(groupCopy, handCopy[i]);
-        if (groupCopy.length > 0) {
-            var nextHandCopy = handCopy.slice(0);
-            nextHandCopy.remove(i);
-            if (validGrouping(groupCopy, nextHandCopy)) {
-                return true;
-            }
-        }
-    }
-    return false;
-};
-
-var validGrouping = function (curGroup, otherTiles) {
-    if (curGroup.length > 2 && validHand(otherTiles)) {
-        return true;
-    }
-    for (var i = 0; i < otherTiles.length; i++) {
-        var groupCopy = curGroup.slice(0);
-        groupCopy = tryGroup(groupCopy, otherTiles[i]);
-        if (groupCopy.length > 0) {
-            var restCopy = otherTiles.slice(0);
-            restCopy.remove(i);
-            if (validGrouping(groupCopy, restCopy)) {
-                return true;
-            }
-        }
-    }
-    return false;
-};
+print(actionERP(startState));

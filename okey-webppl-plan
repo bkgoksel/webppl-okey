@@ -1,10 +1,11 @@
 In the game state, for each player:
 -> Player knowledge about game state:
-	-> Player's hand									hand[tile]
-	-> Tiles that are in piles.							piles[[tile]]
-	-> Tiles that are in the other player's hand.		inOthersHand[tile]
-	-> Tiles the other player knows are in my hand.		knownInMyHand[tile]
-	-> Tiles the player doesn't know where they are.	unknownLocation[tile]
+	-> Player's hand									+hand[tile] 
+	-> Pile of tiles where player can draw. 			+myDrawPile[tile]
+	-> Pile of tiles where player can discard a tile.  	+myDiscardPile[tile]
+	-> Tiles that are in the other player's hand.		+inOthersHand[tile]
+	-> Tiles the other player knows are in my hand.		+knownInMyHand[tile]
+	-> Tiles the player doesn't know where they are.	+unknownLocation[tile]
 
 ACTIONERP(mainPlayerState)
 	if(main player is winning in mainPlayerState) return the special WIN action
