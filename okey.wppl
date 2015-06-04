@@ -1,0 +1,162 @@
+var actionERP = function(state) {
+
+    /*
+    console.log("ActionERP called with:")
+    console.log(state)
+    */
+    
+    return Enumerate(function() {
+        if(externOkey.win(state)) {
+            var result = "WIN"
+            return result
+        } else {
+            var actionSample = sample(actionPriorERP(state))
+            var outcomeSample = sample(outcomeWithMainERP(state, actionSample))
+            factor(externOkey.win(outcomeSample) ? 0 : -10)
+            return actionSample
+        }
+    });
+};
+
+var outcomeWithMainERP = function(state, action) {
+
+    /*
+    console.log("outcome with main ERP called with: ")
+    console.log(state)
+    console.log(action)
+    */
+    
+    return Enumerate(function() {
+        if(action == "WIN") {
+            return state
+        } else {
+            var newState = sample(applyActionERP(state, action))
+            var othersState = sample(inferredStateERP(newState))
+            var othersAction = sample(actionERP(othersState))
+            if(othersAction == "WIN") {
+                return newState
+            }
+            return sample(outcomeWithOtherERP(newState, othersAction, othersState.hand))
+        }
+    });
+};
+
+var outcomeWithOtherERP = function(state, action, othersHand) {
+    
+    /*
+    console.log("outcome with other's ERP called with: ")
+    console.log(state)
+    console.log(action)
+    console.log(othersHand)
+    */
+    
+    return Enumerate(function() {
+        if(action == "WIN") {
+            return state
+        } else {
+            var newState = externOkey.applyOthersAction(state, action, othersHand)
+            var newAction = sample(actionERP(newState))
+            return sample(outcomeWithMainERP(newState, newAction))
+        }
+    });
+};
+
+var inferredStateERP = function(state) {
+
+    /*
+    console.log("inferred state erp called with:")
+    console.log(state)
+    */
+    
+    return Enumerate( function() {
+        var otherPlayerState = {}
+        otherPlayerState.hand = sample(handERP(state.inOthersHand, state.unknownLocation, 4 - state.inOthersHand))
+        otherPlayerState.myDrawPile = state.myDiscardPile
+        otherPlayerState.myDiscardPile = state.myDrawPile
+        otherPlayerState.inOthersHand = state.knownInMyHand
+        otherPlayerState.knownInMyHand = state.inOthersHand
+        otherPlayerState.unknownLocation = externOkey.buildUnknowns(otherPlayerState)
+        return otherPlayerState
+    });
+};
+
+var handERP = function(curHand, possibleTiles, numNeededTiles) {
+
+    /*
+    console.log("hand erp called with:")
+    console.log(curHand)
+    console.log(numNeededTiles);
+    */
+    
+    return Enumerate(function() {
+        if(numNeededTiles === 0) {
+            return curHand
+        } else {
+            var nextTileIndex = randomInteger(possibleTiles.length)
+            var nextTile = possibleTiles[nextTileIndex]
+            var nextPossibleTiles = possibleTiles.slice()
+            nextPossibleTiles.splice(nextTileIndex,1)
+            var nextHand = curHand.slice()
+            nextHand.push(nextTile)
+            return sample(handERP(nextHand, nextPossibleTiles, 4 - nextHand.length))
+        }
+    });
+};
+
+var actionPriorERP = function(state) {
+    
+    /*
+    console.log("action Prior called with:")
+    console.log(state)
+    */
+    
+    return Enumerate(function() {
+        var action = {};
+        action.draw = flip() ? "center" : "pile";
+        action.discard = randomInteger(4 + 1) - 1;
+        return action; 
+    });
+};
+
+var applyActionERP = function(state, action) {
+    
+    /*
+    console.log("apply action called with:")
+    console.log(state)
+    console.log(action)
+    */
+    
+    return Enumerate(function() {
+        var newState = {};
+        var drawnTile = {};
+        var newHand = [];
+        if(action.draw === "pile") {
+            drawnTile = state.myDrawPile.pop();
+            var newPile = state.myDrawPile;
+            newState.myDrawPile = newPile;
+            newState.unknownLocation = state.unknownLocation;
+            state.knownInMyHand.push(drawnTile);
+        } else {
+            var drawIndex = randomInteger(state.unknownLocation.length) - 1;
+            drawnTile = state.unknownLocation[drawIndex];
+            state.unknownLocation.splice(drawIndex, 1);
+            newState.unknownLocation = state.unknownLocation;
+            newState.myDrawPile = state.myDrawPile;
+        }
+        newHand = state.hand.concat([drawnTile]);
+        var discardedTile = newHand[action.discard];
+        newHand.splice(action.discard, 1);
+        newState.hand = newHand;
+        var newDiscardPile = state.myDiscardPile.slice();
+        newDiscardPile.push(discardedTile);
+        newState.myDiscardPile = newDiscardPile;
+        if(externOkey.tileSearch(state.knownInMyHand, discardedTile) !== -1) {
+            state.knownInMyHand.splice(externOkey.tileSearch(state.knownInMyHand, discardedTile), 1);
+        }
+        newState.knownInMyHand = state.knownInMyHand;
+        newState.inOthersHand = state.inOthersHand;
+        return newState;        
+    });
+};
+
+console.log(actionERP(externOkey.generateStartState()));
