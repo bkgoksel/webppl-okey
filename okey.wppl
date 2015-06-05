@@ -1,22 +1,34 @@
+var recurseLevels = 0;
+
+var actionPriorERP = Enumerate(function() {
+  var action = [flip(0.5) ? "center" : "pile", randomInteger(4)];
+  return action; 
+})
+
 var actionERP = function(state) {
 
     /*
     console.log("ActionERP called with:")
     console.log(state)
     */
+
+    //console.log(recurseLevels)
+
+    if(recurseLevels > 0) return actionPriorERP;
     
-    return Enumerate(function() {
+    Enumerate(function() {
+        //console.log(state);
         if(externOkey.win(state)) {
             var result = "WIN"
             return result
         } else {
-            var actionSample = sample(actionPriorERP(state))
+            var actionSample = sample(actionPriorERP)
             var outcomeSample = sample(outcomeWithMainERP(state, actionSample))
             factor(externOkey.win(outcomeSample) ? 0 : -10)
             return actionSample
         }
     });
-};
+}
 
 var outcomeWithMainERP = function(state, action) {
 
@@ -26,12 +38,15 @@ var outcomeWithMainERP = function(state, action) {
     console.log(action)
     */
     
-    return Enumerate(function() {
-        if(action == "WIN") {
+    Enumerate(function() {
+        if(action == "WIN" || state.unknownLocation.length + state.inOthersHand.length < 4) {
             return state
         } else {
-            var newState = sample(applyActionERP(state, action))
+            var drawIndex = randomInteger(state.unknownLocation.length);
+            var newState = externOkey.applyMyAction(state, action, drawIndex);
+            if(newState.unknownLocation.length + state.inOthersHand.length < 4) return newState;
             var othersState = sample(inferredStateERP(newState))
+            recurseLevels = recurseLevels + 1;
             var othersAction = sample(actionERP(othersState))
             if(othersAction == "WIN") {
                 return newState
@@ -42,7 +57,6 @@ var outcomeWithMainERP = function(state, action) {
 };
 
 var outcomeWithOtherERP = function(state, action, othersHand) {
-    
     /*
     console.log("outcome with other's ERP called with: ")
     console.log(state)
@@ -50,8 +64,8 @@ var outcomeWithOtherERP = function(state, action, othersHand) {
     console.log(othersHand)
     */
     
-    return Enumerate(function() {
-        if(action == "WIN") {
+    Enumerate(function() {
+        if(action == "WIN" || state.unknownLocation.length === 0) {
             return state
         } else {
             var newState = externOkey.applyOthersAction(state, action, othersHand)
@@ -68,14 +82,11 @@ var inferredStateERP = function(state) {
     console.log(state)
     */
     
-    return Enumerate( function() {
-        var otherPlayerState = {}
-        otherPlayerState.hand = sample(handERP(state.inOthersHand, state.unknownLocation, 4 - state.inOthersHand))
-        otherPlayerState.myDrawPile = state.myDiscardPile
-        otherPlayerState.myDiscardPile = state.myDrawPile
-        otherPlayerState.inOthersHand = state.knownInMyHand
-        otherPlayerState.knownInMyHand = state.inOthersHand
-        otherPlayerState.unknownLocation = externOkey.buildUnknowns(otherPlayerState)
+    Enumerate( function() {
+        var knownOthers = state.inOthersHand.slice()
+        var possibles = state.unknownLocation.slice()
+        var newHand = sample(handERP(knownOthers, possibles, 4 - knownOthers.length))
+        var otherPlayerState = externOkey.buildOthersState(state, newHand);
         return otherPlayerState
     });
 };
@@ -88,10 +99,11 @@ var handERP = function(curHand, possibleTiles, numNeededTiles) {
     console.log(numNeededTiles);
     */
     
-    return Enumerate(function() {
+    Enumerate(function() {
         if(numNeededTiles === 0) {
             return curHand
         } else {
+            //console.log(possibleTiles.length)
             var nextTileIndex = randomInteger(possibleTiles.length)
             var nextTile = possibleTiles[nextTileIndex]
             var nextPossibleTiles = possibleTiles.slice()
@@ -102,61 +114,4 @@ var handERP = function(curHand, possibleTiles, numNeededTiles) {
         }
     });
 };
-
-var actionPriorERP = function(state) {
-    
-    /*
-    console.log("action Prior called with:")
-    console.log(state)
-    */
-    
-    return Enumerate(function() {
-        var action = {};
-        action.draw = flip() ? "center" : "pile";
-        action.discard = randomInteger(4 + 1) - 1;
-        return action; 
-    });
-};
-
-var applyActionERP = function(state, action) {
-    
-    /*
-    console.log("apply action called with:")
-    console.log(state)
-    console.log(action)
-    */
-    
-    return Enumerate(function() {
-        var newState = {};
-        var drawnTile = {};
-        var newHand = [];
-        if(action.draw === "pile") {
-            drawnTile = state.myDrawPile.pop();
-            var newPile = state.myDrawPile;
-            newState.myDrawPile = newPile;
-            newState.unknownLocation = state.unknownLocation;
-            state.knownInMyHand.push(drawnTile);
-        } else {
-            var drawIndex = randomInteger(state.unknownLocation.length) - 1;
-            drawnTile = state.unknownLocation[drawIndex];
-            state.unknownLocation.splice(drawIndex, 1);
-            newState.unknownLocation = state.unknownLocation;
-            newState.myDrawPile = state.myDrawPile;
-        }
-        newHand = state.hand.concat([drawnTile]);
-        var discardedTile = newHand[action.discard];
-        newHand.splice(action.discard, 1);
-        newState.hand = newHand;
-        var newDiscardPile = state.myDiscardPile.slice();
-        newDiscardPile.push(discardedTile);
-        newState.myDiscardPile = newDiscardPile;
-        if(externOkey.tileSearch(state.knownInMyHand, discardedTile) !== -1) {
-            state.knownInMyHand.splice(externOkey.tileSearch(state.knownInMyHand, discardedTile), 1);
-        }
-        newState.knownInMyHand = state.knownInMyHand;
-        newState.inOthersHand = state.inOthersHand;
-        return newState;        
-    });
-};
-
 console.log(actionERP(externOkey.generateStartState()));

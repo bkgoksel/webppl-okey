@@ -36,16 +36,16 @@ function sameTile(tile1, tile2) {
 
 function applyOthersAction(state, action, othersHand) {
     var newState = {};
-    if(action.draw === "pile") {
+    if(action[0] === "pile") {
         // If the other player draws from the pile, remove that tile from the pile
         var drawnTile = state.myDiscardPile.pop();
         // Now we know that the other player has this tile.
         state.inOthersHand.push(drawnTile);
     }
     newState.myDiscardPile = state.myDiscardPile;
-    newState.hand = state.hand;
+    newState.hand = state.hand.slice();
     newState.knownInMyHand = state.knownInMyHand;
-    var discardedTile = othersHand[action.discard];
+    var discardedTile = othersHand[action[1]];
     state.myDrawPile.push(discardedTile);
     newState.myDrawPile = state.myDrawPile;
     if(tileSearch(state.inOthersHand, discardedTile) !== -1) {
@@ -58,6 +58,39 @@ function applyOthersAction(state, action, othersHand) {
     return newState;
 }
 
+function applyMyAction(state, action, drawIndex) {
+        var newState = {};
+        var drawnTile = {};
+        var newHand = [];
+        var newKnown = state.knownInMyHand.slice();
+        if(action[0] === "pile") {
+            drawnTile = state.myDrawPile.slice().pop();
+            var newPile = state.myDrawPile.slice();
+            newState.myDrawPile = newPile;
+            newState.unknownLocation = state.unknownLocation.slice();
+            newKnown.push(drawnTile);
+        } else {
+            drawnTile = state.unknownLocation[drawIndex];
+            var newUnk = state.unknownLocation.slice();
+            newUnk.splice(drawIndex, 1);
+            newState.unknownLocation = newUnk;
+            newState.myDrawPile = state.myDrawPile.slice();
+        }
+        newHand = state.hand.concat([drawnTile]);
+        var discardedTile = newHand[action[1]];
+        newHand = arrRemove(newHand, action[1]);
+        newState.hand = newHand.slice();
+        var newDiscardPile = state.myDiscardPile.slice();
+        newDiscardPile.push(discardedTile);
+        newState.myDiscardPile = newDiscardPile;
+        if(tileSearch(newKnown, discardedTile) !== -1) {
+            newKnown.splice(tileSearch(newKnown, discardedTile), 1);
+        }
+        newState.knownInMyHand = newKnown;
+        newState.inOthersHand = state.inOthersHand.slice();
+        return newState;        
+    }
+
 function buildUnknowns(state) {
     var unks = generateAllTiles();
     var arrs = [state.hand, state.myDrawPile, state.myDiscardPile, state.inOthersHand];
@@ -66,15 +99,17 @@ function buildUnknowns(state) {
             unks = arrRemove(unks, tileSearch(unks, arrs[arrInd][i]));
         }
     }
-    return _.difference(generateAllTiles(), state.hand, state.myDrawPile, state.myDiscardPile, state.inOthersHand);
+    return unks;
 }
 
 
 function win(state) {
+    //console.log(state.hand);
     return validHand(state.hand);    
 }
 
 function tryGroup(group, newTile) {
+    //console.log(group);
     group = group.slice(0);
     var origTile = newTile;
     var group0val = group[0].value;
@@ -147,9 +182,20 @@ function validGrouping(curGroup, otherTiles) {
     return false;
 }
 
+function buildOthersState(thisState, othersHand) {
+    var otherPlayerState = {};
+    otherPlayerState.hand = othersHand;
+    otherPlayerState.myDrawPile = thisState.myDiscardPile;
+    otherPlayerState.myDiscardPile = thisState.myDrawPile;
+    otherPlayerState.inOthersHand = thisState.knownInMyHand;
+    otherPlayerState.knownInMyHand = thisState.inOthersHand;
+    otherPlayerState.unknownLocation = buildUnknowns(otherPlayerState);
+    return otherPlayerState;
+}
+
 function generateAllTiles() {
     var allTiles = _.flatten(_.map(_.range(tileNumRange), function(num) { return _.map(_.range(nColors), function(col){return {value: num, color: col};});}));
-    return allTiles.concat(allTiles);
+    return allTiles;
 }
 
 function generateStartState() {
@@ -157,14 +203,14 @@ function generateStartState() {
         hand: [{value: 0, color: 0},
                {value: 1, color: 0},
                {value: 2, color: 0},
-               {value: 2, color: 0}],
+               {value: 3, color: 1}],
         myDrawPile: [{value: 3, color: 0}],
         myDiscardPile: [{value: 0, color: 2}],
         inOthersHand: [{value: 1, color: 1},
                        {value: 2, color: 1},
                        {value: 3, color: 2}],
         knownInMyHand: [{value: 0, color: 0},
-                        {value: 0, color: 1}],
+                        {value: 1, color: 0}],
         unknownLocation: []
     };
     state1.unknownLocation = buildUnknowns(state1);
@@ -174,8 +220,9 @@ function generateStartState() {
 
 module.exports = {
     generateStartState: generateStartState,
+    applyMyAction: applyMyAction,
     applyOthersAction: applyOthersAction,
-    buildUnknowns: buildUnknowns,
+    buildOthersState: buildOthersState,
     win: win,
     tileSearch: tileSearch
 }; 
