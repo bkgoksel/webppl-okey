@@ -1,19 +1,24 @@
+/*
+ * externOkey is the JS module that the WebPPL okey AI uses for deterministic computations
+ 
+ */
+
 var _ = require('underscore');
 var tileNumRange = 4;
 var nColors = 4;
-/*
-console.log(startState);
-var action1 = {draw: "pile", discard: 2};
-var othersHand = [{value: 1, color: 1}, {value: 3, color: 2}, {value: 2, color: 1}, {value: 3, color: 3}];
-var nextState = applyOthersAction(startState, action1, othersHand);
-console.log(nextState);
-*/
 
+/*
+ * arrInsert inserts item at the index index of the array arr and returns a copy of the new
+ * inserted array.
+ */
 function arrInsert(arr, index, item) {
     arr.splice(index, 0, item);
     return arr;
 }
 
+/* tileSearch searches the target tile in the array and returns the index of its first occurence
+ * returns -1 if the tile target cannot be found in arr. Only works for tiles
+ */
 function tileSearch(arr, target) {
     for (var xx = 0; xx < arr.length; xx++) {
         if (sameTile(arr[xx], target)) {
@@ -23,17 +28,28 @@ function tileSearch(arr, target) {
     return -1;
 }
 
+/*
+ * arrRemove takes an array arr and an index index, removes the element at that index and returns
+ * an array that doesn't have that element.
+ */
 function arrRemove(arr, index) {
     arr.splice(index,1);
     return arr;
 }
 
-
+/*
+ * sameTile takes in two tile objects and returns true if they have the same number and color.
+ */
 function sameTile(tile1, tile2) {
     return (tile1.value === tile2.value && tile1.color === tile2.color);
 }
 
-
+/*
+ * applyOthersAction takes in a partial game state representing the current player's information
+ * and the action the other player will take and the hand of the other player, and returns an updated
+ * partial game state that represents the current player's information after that specific action is
+ * taken.
+ */
 function applyOthersAction(state, action, othersHand) {
     var newState = {};
     if(action[0] === "pile") {
@@ -58,6 +74,11 @@ function applyOthersAction(state, action, othersHand) {
     return newState;
 }
 
+/*
+ * applyMyAction takes in a partial game state representing a player's information and the action they will take
+ * as well as the index that they will draw from on the deck. Returns an updated partial game state after the player
+ * takes the given action.
+ */
 function applyMyAction(state, action, drawIndex) {
         var newState = {};
         var drawnTile = {};
@@ -91,6 +112,10 @@ function applyMyAction(state, action, drawIndex) {
         return newState;        
     }
 
+/*
+ * buildUnknowns takes in a partial game state representing a player's information and
+ * returns an array that contains all the tiles whose locations the player doesn't know
+ */
 function buildUnknowns(state) {
     var unks = generateAllTiles();
     var arrs = [state.hand, state.myDrawPile, state.myDiscardPile, state.inOthersHand];
@@ -102,14 +127,15 @@ function buildUnknowns(state) {
     return unks;
 }
 
-
+// Returns true if the current state is a winning state for its player
 function win(state) {
-    //console.log(state.hand);
     return validHand(state.hand);    
 }
 
+/* helper function for hand validity. If the given tile can be grouped with the given
+ * group of tiles, returns a possible grouping. Otherwise returns an empty array.
+ */
 function tryGroup(group, newTile) {
-    //console.log(group);
     group = group.slice(0);
     var origTile = newTile;
     var group0val = group[0].value;
@@ -143,6 +169,8 @@ function tryGroup(group, newTile) {
     return [];
 }
 
+/*
+ * Returns true if the current hand is a valid hand(meaning all tiles can be grouped in groups of size >)
 function validHand(hand) {
     if (hand.length === 0) {
         return true;
@@ -164,6 +192,10 @@ function validHand(hand) {
     return false;
 }
 
+/*
+ * Returns true if all of the otherTiles can either be grouped on their own
+ * or be added to the current group.
+ */
 function validGrouping(curGroup, otherTiles) {
     if (curGroup.length > 2 && validHand(otherTiles)) {
         return true;
@@ -182,6 +214,11 @@ function validGrouping(curGroup, otherTiles) {
     return false;
 }
 
+/*
+ * Builds the partial game state representing the other player's information
+ * given the partial game state representing this player's information
+ * and this player's guess of the other player's hand.* and this player's guess of the other player's hand.
+ */
 function buildOthersState(thisState, othersHand) {
     var otherPlayerState = {};
     otherPlayerState.hand = othersHand;
@@ -193,11 +230,15 @@ function buildOthersState(thisState, othersHand) {
     return otherPlayerState;
 }
 
+/*
+ * Returns an array that contains every single tile in the game.
+ */
 function generateAllTiles() {
     var allTiles = _.flatten(_.map(_.range(tileNumRange), function(num) { return _.map(_.range(nColors), function(col){return {value: num, color: col};});}));
     return allTiles;
 }
 
+// Generates a start state
 function generateStartState() {
     var state1 = {
         hand: [{value: 0, color: 0},

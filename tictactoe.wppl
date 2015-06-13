@@ -18,16 +18,21 @@ var startState2 = [
     ["0", "o", "0"]
 ];
 
+// checks if a move is valid(if the given cell in the grid is empty)
 var validMove = function(move, state) {
     return state[move[0]][move[1]] === "0"
 }
-var actionPriorERP = function(state) {
+
+// returns a uniform distribution over all the cells in the grid
+var actionPriorERP = cache(function(state) {
     return Enumerate(function() {
         var action = [randomInteger(3), randomInteger(3)]
         factor(validMove(action, state) ? 0 : -Infinity)
         return action
     }, 50)
-}
+})
+
+// builds the next state by placing the player's mark on the tile specified in the action
 var transition = function(state, action, player) {
     var nextState = [];
     if (action[0] === 0) {
@@ -47,6 +52,8 @@ var transition = function(state, action, player) {
     } 
     return nextState;
 }
+
+// recursively builds the grid(the two dimensional array) that holds the game info
 var buildState = function(i, prevState, newState, action, player) {
     if (i >= 3) return newState;
     else if (action === i) {
@@ -57,11 +64,15 @@ var buildState = function(i, prevState, newState, action, player) {
         return buildState(i + 1, prevState, newState, action, player);
     }
 }
+
+// checks if the given player has won
 var win = function(player, state) {
     if ((state[0][0] === player && state[1][1] === player && state[2][2] === player) || (state[0][2] === player && state[1][1] === player && state[2][0] === player)) return true
     if (((state[0][0] === player && state[0][1] === player && state[0][2] === player) || (state[0][0] === player && state[1][0] === player && state[2][0] === player)) || ((state[1][0] === player && state[1][1] === player && state[1][2] === player) || (state[0][1] === player && state[1][1] === player && state[2][1] === player)) || ((state[2][0] === player && state[2][1] === player && state[2][2] === player) || (state[0][2] === player && state[1][2] === player && state[2][2] === player))) return true
     return false
 }
+
+// checks if the grid is full
 var terminal = function(state) {
     if (state[0][0] === "0" || state[0][1] === "0" || state[0][2] === "0" || state[1][0] === "0" || state[1][1] === "0" || state[1][2] === "0" || state[2][0] === "0" || state[2][1] === "0" || state[2][2] === "0") {
         return false
@@ -69,27 +80,37 @@ var terminal = function(state) {
         return true
     }
 }
+
+// returns the string representing the other player of the game
 var otherPlayer = function(player) {
     return player === "x" ? "o" : "x"
 }
+
+// checks if the game is currently in a draw state.
 var draw = function(outcome) {
     return (!win("x", outcome) && !win("o", outcome));
 }
+
+// returns the utility of a certain outcome for a certain player
 var expUtility = function(outcome, player) {
     return (win(player, outcome) ? 1 : (draw(outcome) ? 0.1 : 0.01))
 }
+
+// returns a distribution over the possible actions a player may take in a certain state.
 var actionERP = function(state, player) {
-    return Enumerate(function() {
+    return MH(function() {
         var action = sample(actionPriorERP(state))
         var outcome = sample(outcomeERP(state, action, player))
         factor(expUtility(outcome, player))
         return action
-    }, 50)
+    }, 1000)
 }
+
+// returns  a distribution over the possible outcomes if a player takes a certain action in a certain state
 var outcomeERP = function(state, action, player) {
-    var nextState = transition(state, action, player)
-    var nextPlayer = otherPlayer(player)
     return Enumerate(function() {
+        var nextState = transition(state, action, player)
+        var nextPlayer = otherPlayer(player)
         if (terminal(state)) {
             return state
         }
@@ -99,11 +120,11 @@ var outcomeERP = function(state, action, player) {
             var nextAction = sample(actionERP(nextState, nextPlayer))
             return sample(outcomeERP(nextState, nextAction, nextPlayer))
         }
-    })
+    }, 1000)
 }
 
 //print(transition(startState, [0,1], "x"));
 //print(outcomeERP(startState, sample(actionERP(startState, "o")), "o"))
 //print(actionERP(startState0, "x"));
-//console.log(actionERP(startState1, "x"));
- console.log(actionERP(startState0, "o"));
+console.log(actionERP(startState1, "x"));
+ //console.log(actionERP(startState0, "o"));

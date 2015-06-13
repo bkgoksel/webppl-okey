@@ -101,7 +101,7 @@ A deck stores the deck of tiles of a game.
 */
 var Deck = function () {
     this.unused = [];
-    for (ij = 0; ij < 52; ij++) {
+    for (var ij = 0; ij < 52; ij++) {
         var color = Math.floor(ij / 13);
         var value = ij % 13 + 1;
         var thisTile = new Tile(color, value);
@@ -134,7 +134,7 @@ Deck.prototype.addToBottom = function (tile) {
 
 Deck.prototype.drawHand = function (isFirst) {
     var hand = [];
-    for (ji = 0; ji < 14; ji++) {
+    for (var ji = 0; ji < 14; ji++) {
         hand[ji] = this.draw();
     }
     if (isFirst) {
@@ -203,7 +203,7 @@ Player.prototype.getHand = function () {
 
 Player.prototype.getHandString = function () {
     var retStr = "{ ";
-    for (jj = 0; jj < this.hand.length; jj++) {
+    for (var jj = 0; jj < this.hand.length; jj++) {
         retStr += this.hand[jj].toString() + " ";
     }
     return retStr + "}";
@@ -217,13 +217,6 @@ Player.prototype.isDone = function () {
     return false;
     // TODO: Insert hand checking code for wins
 };
-
-/*
-IS THIS NECESSARY?
-Player.prototype.isAI = function () {
-    return this.isAI;
-}
-*/
 
 Player.prototype.chooseAndDraw = function (game) {
     var visibleTiles = game.getVisibleTiles();
@@ -275,14 +268,14 @@ var GUI = function (game) {
     this.handDisps = [];
     this.pDisps = [];
     this.indDisp = document.getElementById("ind");
-    for (ki = 0; ki < 4; ki++) {
+    for (var ki = 0; ki < 4; ki++) {
         this.nameDisps[ki] = document.getElementById("name" + ki.toString());
         this.handDisps[ki] = document.getElementById("hand" + ki.toString());
         this.pDisps[ki] = document.getElementById("p" + ki.toString());
     }
     if (game) {
         this.indDisp.innerHTML = game.indicator.toString();
-        for (kj = 0; kj < 4; kj++) {
+        for (var kj = 0; kj < 4; kj++) {
             this.nameDisps[kj].innerHTML = game.getPlayer(kj).getName();
             this.handDisps[kj].innerHTML = game.getPlayer(kj).getHandString();
         }
@@ -290,7 +283,7 @@ var GUI = function (game) {
 };
 
 GUI.prototype.update = function (game) {
-    for (kk = 0; kk < 4; kk++) {
+    for (var kk = 0; kk < 4; kk++) {
         this.handDisps[kk].innerHTML = game.getPlayer(kk).getHandString();
         this.pDisps[kk].innerHTML = game.getPile(kk).length > 0 ? game.getPile(kk) : " ";
     }
@@ -335,7 +328,7 @@ var Game = function (players, shufflePlayers) {
     }
     this.deck.addToBottom(this.indicator);
     this.joker = new Tile(this.indicator.color, (this.indicator.value % 13) + 1);
-    for (li = 0; li < 4; li++) {
+    for (var li = 0; li < 4; li++) {
         this.players[li] = players[li];
         this.players[li].setGameIndex(li);
         this.players[li].setHand(this.deck.drawHand(li === 0));
@@ -366,7 +359,7 @@ Game.prototype.playRound = function () {
 
 Game.prototype.play = function () {
     this.playFirstRound();
-    for (i = 0; i < 1; i++) {
+    for (var i = 0; i < 1; i++) {
         if (this.playRound()) {
             break;
         }
@@ -404,7 +397,7 @@ Game.prototype.getPile = function (index) {
 
 Game.prototype.getVisibleTiles = function () {
     var visibleTiles = [];
-    for (lj = 0; lj < this.piles.length; lj++) {
+    for (var lj = 0; lj < this.piles.length; lj++) {
         if (this.piles[lj].length > 0) {
             visibleTiles.push(this.piles[lj][this.piles[lj].length - 1]);
         }
@@ -491,14 +484,14 @@ Game.prototype.validHand = function (hand) {
     if (hand.length === 0) {
         return true;
     }
-    handCopy = hand.slice(0);
+    var handCopy = hand.slice(0);
     var firstCard = handCopy.pop();
     while (firstCard.equals(this.joker)) {
         handCopy.insert(0, firstCard);
         firstCard = handCopy.pop();
     }
     var firstGroup = [firstCard];
-    for (i = 0; i < handCopy.length; i++) {
+    for (var i = 0; i < handCopy.length; i++) {
         var groupCopy = firstGroup.slice(0);
         groupCopy = this.tryGroup(groupCopy, handCopy[i]);
         if (groupCopy.length > 0) {
@@ -516,7 +509,7 @@ Game.prototype.validGrouping = function (curGroup, otherTiles) {
     if (curGroup.length > 2 && this.validHand(otherTiles)) {
         return true;
     }
-    for (i = 0; i < otherTiles.length; i++) {
+    for (var i = 0; i < otherTiles.length; i++) {
         var groupCopy = curGroup.slice(0);
         groupCopy = this.tryGroup(groupCopy, otherTiles[i]);
         if (groupCopy.length > 0) {
@@ -538,8 +531,4 @@ var p3 = new Player("Rafet");
 var p4 = new Player("Sivekar");
 
 var newGame = new Game([p1, p2, p3, p4], true); //shuffle players
-//newGame.play();
-var t1 = new Tile(Tile.strToColor("R"), 1);
-var t2 = new Tile(Tile.strToColor("G"), 1);
-var t3 = new Tile(Tile.strToColor("B"), 1);
-var t4 = new Tile(Tile.strToColor("Y"), 1);
+newGame.play();

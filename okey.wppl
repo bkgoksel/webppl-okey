@@ -1,43 +1,45 @@
+/* Okey.wppl
+ * This is the WebPPL implementation of an AI agent that plays the game of Okey.
+ * It can take in a partial game state that contains a certain player's information about the
+ * current state of the game, and chooses a softmax optimal action based on this state.
+ */
+
+// recurseLevels limits how many levels will the theory of mind apply when choosing action.
 var recurseLevels = 0;
 
+
+// actionPriorERP is an ERP that uniformly returns an action tuple independent of the state
 var actionPriorERP = Enumerate(function() {
   var action = [flip(0.5) ? "center" : "pile", randomInteger(4)];
   return action; 
 })
 
-var actionERP = function(state) {
-
-    /*
-    console.log("ActionERP called with:")
-    console.log(state)
-    */
-
-    //console.log(recurseLevels)
-
-    if(recurseLevels > 0) return actionPriorERP;
+/* actionERP returns a distribution over the possible actions the player can take, with
+ * actions that are more likely to lead to a win more probable. If the recursive depth is 0,
+ * a random action is chosen.
+ */
+var actionERP = function(state, depth) {
+    if(depth === 0) return actionPriorERP;
     
     Enumerate(function() {
-        //console.log(state);
         if(externOkey.win(state)) {
             var result = "WIN"
             return result
         } else {
             var actionSample = sample(actionPriorERP)
-            var outcomeSample = sample(outcomeWithMainERP(state, actionSample))
+            var outcomeSample = sample(outcomeWithMainERP(state, actionSample, depth))
             factor(externOkey.win(outcomeSample) ? 0 : -10)
             return actionSample
         }
     });
 }
 
-var outcomeWithMainERP = function(state, action) {
-
-    /*
-    console.log("outcome with main ERP called with: ")
-    console.log(state)
-    console.log(action)
-    */
-    
+/*
+ * outcomeWithMainERP takes the current state and the action the deciding player is planning
+ * to take, and returns a distribution over the possible outcomes if the player takes that
+ * action. It takes in the depth and passes it to the action decision of the other player
+ */
+var outcomeWithMainERP = function(state, action, depth) {
     Enumerate(function() {
         if(action == "WIN" || state.unknownLocation.length + state.inOthersHand.length < 4) {
             return state
@@ -46,8 +48,7 @@ var outcomeWithMainERP = function(state, action) {
             var newState = externOkey.applyMyAction(state, action, drawIndex);
             if(newState.unknownLocation.length + state.inOthersHand.length < 4) return newState;
             var othersState = sample(inferredStateERP(newState))
-            recurseLevels = recurseLevels + 1;
-            var othersAction = sample(actionERP(othersState))
+            var othersAction = sample(actionERP(othersState, depth - 1))
             if(othersAction == "WIN") {
                 return newState
             }
@@ -56,14 +57,12 @@ var outcomeWithMainERP = function(state, action) {
     });
 };
 
+/*
+ * outcomeWithOtherERP takes in the current state and a possible hand and action for the other
+ * player and returns a distribution over the possible outcomes if the other player has the
+ * given hand and takes the given action.
+ */
 var outcomeWithOtherERP = function(state, action, othersHand) {
-    /*
-    console.log("outcome with other's ERP called with: ")
-    console.log(state)
-    console.log(action)
-    console.log(othersHand)
-    */
-    
     Enumerate(function() {
         if(action == "WIN" || state.unknownLocation.length === 0) {
             return state
@@ -75,13 +74,11 @@ var outcomeWithOtherERP = function(state, action, othersHand) {
     });
 };
 
+/*
+ * inferredStateERP returns a distribution over the possible partial game states from the
+ * other player's perspective given the information the current player has.
+ */
 var inferredStateERP = function(state) {
-
-    /*
-    console.log("inferred state erp called with:")
-    console.log(state)
-    */
-    
     Enumerate( function() {
         var knownOthers = state.inOthersHand.slice()
         var possibles = state.unknownLocation.slice()
@@ -91,14 +88,12 @@ var inferredStateERP = function(state) {
     });
 };
 
+/*
+ * handERP returns a distribution over the possible hands the other player may have
+ * given the tiles we already know they have, the set of tiles they may have and the
+ * number of tiles needed to have a complete hand.
+ */
 var handERP = function(curHand, possibleTiles, numNeededTiles) {
-
-    /*
-    console.log("hand erp called with:")
-    console.log(curHand)
-    console.log(numNeededTiles);
-    */
-    
     Enumerate(function() {
         if(numNeededTiles === 0) {
             return curHand
@@ -114,4 +109,5 @@ var handERP = function(curHand, possibleTiles, numNeededTiles) {
         }
     });
 };
+
 console.log(actionERP(externOkey.generateStartState()));
